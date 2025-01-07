@@ -76,75 +76,31 @@
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                dataSrc: ''
+                dataSrc: function(json) {
+                    console.log('Datos recibidos:', json);  // Debug
+                    return json || [];
+                },
+                error: function(xhr, error, thrown) {
+                    console.log('Error en la llamada AJAX:');
+                    console.log('Estado:', xhr.status);
+                    console.log('Respuesta:', xhr.responseText);
+                    console.log('Error:', error);
+                }
             },
+            processing: true,  // Mostrar indicador de carga
+            serverSide: false,
             columns: [
                 { data: 'CodigoCliente' },
-                { data: 'CifDni' },
                 { data: 'RazonSocial' },
-                { data: 'Municipio' },
+                { data: 'CifDni' },
+                { data: 'Direccion' },
+                { data: 'CodigoPostal' },
+                { data: 'Poblacion' },
                 { data: 'Provincia' },
-                { data: 'Nacion' },
-                { data: 'Telefono' },
-                { data: 'CodigoEmpresa' },
-                { data: 'IdDelegacion' },
-                { data: 'EjercicioAlbaran' },
-                { data: 'SerieAlbaran' },
-                { data: 'NumeroAlbaran' },
-                { 
-                    data: 'FechaAlbaran',
-                    render: function(data) {
-                        return data ? new Date(data).toLocaleDateString('es-ES') : '';
-                    }
-                },
-                { data: 'NumeroLineas' },
-                { 
-                    data: 'ImporteCoste',
-                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
-                },
-                { 
-                    data: 'ImporteNetoLineas',
-                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
-                },
-                { 
-                    data: 'ImporteDescuento',
-                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
-                },
-                { 
-                    data: 'BaseImponible',
-                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
-                }
-            ],
-            dom: 'Bfrtip',
-            buttons: [
-                'copy', 'csv', 'excel', 'pdf'
+                { data: 'Telefono' }
             ],
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
-            },
-            pageLength: 25,
-            order: [[2, 'asc']],
-            scrollX: true,
-            initComplete: function () {
-                this.api()
-                    .columns()
-                    .every(function () {
-                        let column = this;
-                        let title = column.footer().textContent;
- 
-                        // Crear input de búsqueda
-                        let input = document.createElement('input');
-                        input.placeholder = title;
-                        input.style.width = '100%';
-                        column.footer().replaceChildren(input);
- 
-                        // Eventos de búsqueda
-                        input.addEventListener('keyup', () => {
-                            if (column.search() !== input.value) {
-                                column.search(input.value).draw();
-                            }
-                        });
-                    });
             }
         });
     });

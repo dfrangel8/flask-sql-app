@@ -80,15 +80,19 @@
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                dataSrc: '',
+                dataSrc: function(json) {
+                    console.log('Datos recibidos:', json);  // Debug
+                    return json || [];
+                },
                 error: function(xhr, error, thrown) {
                     console.log('Error en la llamada AJAX:');
                     console.log('Estado:', xhr.status);
                     console.log('Respuesta:', xhr.responseText);
                     console.log('Error:', error);
-                    console.log('Thrown:', thrown);
                 }
             },
+            processing: true,  // Mostrar indicador de carga
+            serverSide: false,
             columns: [
                 { data: 'SerieAlbaran' },
                 { data: 'NumeroAlbaran' },
@@ -114,9 +118,7 @@
             ],
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
-            },
-            dom: 'Bfrtip',
-            buttons: ['copy', 'csv', 'excel', 'pdf']
+            }
         });
 
         // Configuración del modal

@@ -15,35 +15,28 @@ logger = logging.getLogger(__name__)
 
 def get_db_connection():
     try:
-        # Imprimir información de diagnóstico
         print("Intentando conectar a la base de datos...")
         print(f"Server: {os.getenv('DB_SERVER')}")
         print(f"Database: {os.getenv('DB_DATABASE')}")
         
-        # Intentar diferentes strings de conexión
-        connection_strings = [
-            # String de conexión 1
-            f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={os.getenv("DB_SERVER")};DATABASE={os.getenv("DB_DATABASE")};UID={os.getenv("DB_USERNAME")};PWD={os.getenv("DB_PASSWORD")}',
-            # String de conexión 2
-            f'DRIVER={{/opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17.so}};SERVER={os.getenv("DB_SERVER")};DATABASE={os.getenv("DB_DATABASE")};UID={os.getenv("DB_USERNAME")};PWD={os.getenv("DB_PASSWORD")}'
-        ]
+        conn_str = (
+            f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+            f'SERVER={os.getenv("DB_SERVER")};'
+            f'DATABASE={os.getenv("DB_DATABASE")};'
+            f'UID={os.getenv("DB_USERNAME")};'
+            f'PWD={os.getenv("DB_PASSWORD")};'
+            'TrustServerCertificate=yes;'  # Agregado para evitar problemas de SSL
+        )
         
-        last_error = None
-        for conn_str in connection_strings:
-            try:
-                print(f"Intentando conectar con string: {conn_str}")
-                conn = pyodbc.connect(conn_str)
-                print("Conexión exitosa!")
-                return conn
-            except Exception as e:
-                print(f"Error con string de conexión: {str(e)}")
-                last_error = e
-        
-        if last_error:
-            raise last_error
+        print("Intentando conectar con string:", conn_str)
+        conn = pyodbc.connect(conn_str)
+        print("¡Conexión exitosa!")
+        return conn
             
     except Exception as e:
         print(f"Error de conexión a la base de datos: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return None
 
 @app.route('/')
