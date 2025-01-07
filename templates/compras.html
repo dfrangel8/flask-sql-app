@@ -29,22 +29,9 @@
                     <th>Cód. Proveedor</th>
                     <th>Razón Social</th>
                     <th>CIF/DNI</th>
-                    <th>Importe</th>
-                    <th>Acciones</th>
+                    <th>Total</th>
                 </tr>
             </thead>
-            <tfoot>
-                <tr>
-                    <th>Serie</th>
-                    <th>Número</th>
-                    <th>Fecha</th>
-                    <th>Cód. Proveedor</th>
-                    <th>Razón Social</th>
-                    <th>CIF/DNI</th>
-                    <th>Importe</th>
-                    <th>Acciones</th>
-                </tr>
-            </tfoot>
         </table>
 
         <!-- Modal para mostrar detalles -->
@@ -81,44 +68,28 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 dataSrc: function(json) {
-                    console.log('Datos recibidos:', json);  // Debug
+                    console.log('Datos recibidos:', json);
                     return json || [];
-                },
-                error: function(xhr, error, thrown) {
-                    console.log('Error en la llamada AJAX:');
-                    console.log('Estado:', xhr.status);
-                    console.log('Respuesta:', xhr.responseText);
-                    console.log('Error:', error);
                 }
             },
-            processing: true,  // Mostrar indicador de carga
-            serverSide: false,
             columns: [
-                { data: 'SerieAlbaran' },
-                { data: 'NumeroAlbaran' },
-                { 
-                    data: 'FechaAlbaran',
-                    render: function(data) {
-                        return data ? new Date(data).toLocaleDateString('es-ES') : '';
-                    }
-                },
+                { data: 'Serie' },
+                { data: 'Numero' },
+                { data: 'Fecha' },
                 { data: 'CodigoProveedor' },
                 { data: 'RazonSocial' },
                 { data: 'CifDni' },
                 { 
-                    data: 'ImporteLiquido',
+                    data: 'Total',
                     render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
-                },
-                {
-                    data: null,
-                    render: function(data, type, row) {
-                        return '<button onclick="verDetalle(\'' + row.SerieAlbaran + '\', \'' + row.NumeroAlbaran + '\')">Ver Detalle</button>';
-                    }
                 }
             ],
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
-            }
+            },
+            processing: true,
+            pageLength: 25,
+            order: [[2, 'desc']]  // Ordenar por fecha descendente
         });
 
         // Configuración del modal

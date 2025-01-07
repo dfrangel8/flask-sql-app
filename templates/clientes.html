@@ -26,45 +26,12 @@
                     <th>Código</th>
                     <th>CIF/DNI</th>
                     <th>Razón Social</th>
+                    <th>Domicilio</th>
                     <th>Municipio</th>
                     <th>Provincia</th>
-                    <th>Nación</th>
                     <th>Teléfono</th>
-                    <th>Empresa</th>
-                    <th>Delegación</th>
-                    <th>Ejercicio</th>
-                    <th>Serie</th>
-                    <th>Nº Albarán</th>
-                    <th>Fecha</th>
-                    <th>Nº Líneas</th>
-                    <th>Coste</th>
-                    <th>Neto</th>
-                    <th>Descuento</th>
-                    <th>Base Imp.</th>
                 </tr>
             </thead>
-            <tfoot>
-                <tr>
-                    <th>Código</th>
-                    <th>CIF/DNI</th>
-                    <th>Razón Social</th>
-                    <th>Municipio</th>
-                    <th>Provincia</th>
-                    <th>Nación</th>
-                    <th>Teléfono</th>
-                    <th>Empresa</th>
-                    <th>Delegación</th>
-                    <th>Ejercicio</th>
-                    <th>Serie</th>
-                    <th>Nº Albarán</th>
-                    <th>Fecha</th>
-                    <th>Nº Líneas</th>
-                    <th>Coste</th>
-                    <th>Neto</th>
-                    <th>Descuento</th>
-                    <th>Base Imp.</th>
-                </tr>
-            </tfoot>
         </table>
     </div>
 
@@ -77,31 +44,25 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 dataSrc: function(json) {
-                    console.log('Datos recibidos:', json);  // Debug
+                    console.log('Datos recibidos:', json);
                     return json || [];
-                },
-                error: function(xhr, error, thrown) {
-                    console.log('Error en la llamada AJAX:');
-                    console.log('Estado:', xhr.status);
-                    console.log('Respuesta:', xhr.responseText);
-                    console.log('Error:', error);
                 }
             },
-            processing: true,  // Mostrar indicador de carga
-            serverSide: false,
             columns: [
                 { data: 'CodigoCliente' },
-                { data: 'RazonSocial' },
                 { data: 'CifDni' },
-                { data: 'Direccion' },
-                { data: 'CodigoPostal' },
-                { data: 'Poblacion' },
+                { data: 'RazonSocial' },
+                { data: 'Domicilio' },
+                { data: 'Municipio' },
                 { data: 'Provincia' },
                 { data: 'Telefono' }
             ],
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
-            }
+            },
+            processing: true,
+            pageLength: 10,
+            order: [[2, 'asc']]
         });
     });
     </script>

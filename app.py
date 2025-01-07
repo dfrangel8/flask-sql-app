@@ -1,190 +1,180 @@
-from flask import Flask, jsonify, render_template, request
-import pyodbc
-import logging
-from datetime import datetime
 import os
+import pyodbc
+from flask import Flask, render_template, jsonify, request
+from dotenv import load_dotenv
 
-app = Flask(__name__, 
-    static_folder='static',    # Asegúrate de que esto coincida con tu estructura de carpetas
-    template_folder='templates' # Asegúrate de que esto coincida con tu estructura de carpetas
-)
-
-# Configuración de logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+app = Flask(__name__)
+load_dotenv()
 
 def get_db_connection():
     try:
         print("\n=== Iniciando conexión a la base de datos ===")
-        server = os.getenv('DB_SERVER', '').replace('\\', '\\\\')
-        database = os.getenv('DB_NAME', '')
-        username = os.getenv('DB_USER', '')
-        password = os.getenv('DB_PASSWORD', '')
-
-        print(f"""
-        Configuración:
-        Server: {server}
-        Database: {database}
-        Username: {username}
-        Password: {'*' * len(password) if password else 'No configurado'}
-        """)
-
-        if not all([server, database, username, password]):
-            print("Error: Faltan variables de entorno")
-            return None
-
         conn_str = (
             f'DRIVER={{ODBC Driver 17 for SQL Server}};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
+            f'SERVER=SERVIDOR\\SAGE200;'
+            f'DATABASE=MMARKET;'
+            f'UID=ConsultasMM;'
+            f'PWD=Sage2009+;'
             'TrustServerCertificate=yes;'
             'Encrypt=no;'
         )
-
+        
         print("Intentando conexión...")
         conn = pyodbc.connect(conn_str)
         print("¡Conexión exitosa!")
-        
-        # Verificar la conexión con una consulta simple
-        cursor = conn.cursor()
-        cursor.execute("SELECT @@version")
-        version = cursor.fetchone()[0]
-        print(f"Versión SQL Server: {version}")
-        cursor.close()
-        
         return conn
-
     except Exception as e:
         print(f"Error de conexión: {str(e)}")
-        import traceback
-        print(traceback.format_exc())
         return None
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/test-db')
+def test_db():
+    conn = get_db_connection()
+    if conn:
+        return "Conexión exitosa a la base de datos!"
+    return "Error de conexión a la base de datos"
+
 @app.route('/clientes')
 def get_clientes():
     try:
-        print("Iniciando consulta de clientes")
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            conn = get_db_connection()
-            if not conn:
-                print("Error de conexión a la base de datos")
-                return jsonify({"error": "No se pudo conectar a la base de datos"})
+        if not request.headers.get('X-Requested-With'):
+            return render_template('clientes.html')
 
-            # Consulta de prueba simple
-            query = """
-            SELECT TOP 10 * FROM dbo.Clientes WITH (NOLOCK)
-            """
+        print("Obteniendo datos de clientes...")
+        conn = get_db_connection()
+        if not conn:
+            print("No se pudo conectar a la base de datos")
+            return jsonify([])
 
-            print("Ejecutando query de prueba...")
-            cursor = conn.cursor()
-            
-            # Imprimir todas las tablas disponibles
-            print("Listando tablas disponibles:")
-            cursor.execute("""
-                SELECT TABLE_NAME 
-                FROM INFORMATION_SCHEMA.TABLES 
-                WHERE TABLE_TYPE = 'BASE TABLE'
-            """)
-            tables = cursor.fetchall()
-            for table in tables:
-                print(f"Tabla encontrada: {table[0]}")
-
-            # Intentar la consulta original
-            print("Ejecutando consulta principal...")
-            cursor.execute(query)
-            
-            # Imprimir información de columnas
-            columns = [column[0] for column in cursor.description]
-            print("Columnas:", columns)
-            
-            results = []
-            for row in cursor.fetchall():
-                result = {}
-                for i, column in enumerate(columns):
-                    value = row[i]
-                    if value is None:
-                        result[column] = ""
-                    elif isinstance(value, (int, float)):
-                        result[column] = float(value)
-                    else:
-                        result[column] = str(value).strip()
-                results.append(result)
-                print(f"Fila procesada: {result}")
-
-            cursor.close()
-            conn.close()
-
-            print(f"Total registros encontrados: {len(results)}")
-            return jsonify(results)
+        cursor = conn.cursor()
+        query = """
+            SELECT TOP 10 
+                CodigoCliente,
+                CifDni,
+                RazonSocial,
+                Domicilio,
+                Municipio,
+                Provincia,
+                Telefono
+            FROM Clientes
+            ORDER BY RazonSocial
+        """
         
-        return render_template('clientes.html')
+        print(f"Ejecutando query: {query}")
+        cursor.execute(query)
+        
+        results = []
+        for row in cursor:
+            result = {
+                "CodigoCliente": str(row[0] or '').strip(),
+                "CifDni": str(row[1] or '').strip(),
+                "RazonSocial": str(row[2] or '').strip(),
+                "Domicilio": str(row[3] or '').strip(),
+                "Municipio": str(row[4] or '').strip(),
+                "Provincia": str(row[5] or '').strip(),
+                "Telefono": str(row[6] or '').strip()
+            }
+            results.append(result)
+            print(f"Procesada fila: {result}")
+
+        cursor.close()
+        conn.close()
+        print(f"Total registros encontrados: {len(results)}")
+        return jsonify(results)
 
     except Exception as e:
         print(f"Error en get_clientes: {str(e)}")
         import traceback
         print(traceback.format_exc())
-        return jsonify({"error": str(e)})
+        return jsonify([])
+
+@app.route('/test-clientes')
+def test_clientes():
+    try:
+        print("Probando consulta de clientes...")
+        conn = get_db_connection()
+        if not conn:
+            return "No se pudo conectar a la base de datos"
+
+        cursor = conn.cursor()
+        
+        # Consulta simple para ver la estructura
+        query = "SELECT TOP 1 * FROM dbo.Clientes"
+        cursor.execute(query)
+        
+        # Obtener nombres de columnas
+        columns = [column[0] for column in cursor.description]
+        print("\nColumnas en la tabla:")
+        for col in columns:
+            print(f"- {col}")
+        
+        # Obtener un registro de ejemplo
+        row = cursor.fetchone()
+        if row:
+            print("\nDatos de ejemplo:")
+            for i, col in enumerate(columns):
+                print(f"{col}: {row[i]}")
+        
+        cursor.close()
+        conn.close()
+        
+        return "Revisa la consola para ver la estructura de la tabla"
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return f"Error: {str(e)}"
 
 @app.route('/compras')
 def get_compras():
     try:
-        print("Iniciando consulta de compras")
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            conn = get_db_connection()
-            if not conn:
-                print("Error de conexión a la base de datos")
-                return jsonify([])
+        if not request.headers.get('X-Requested-With'):
+            return render_template('compras.html')
 
-            # Query simplificada para pruebas
-            query = """
+        print("Obteniendo datos de compras...")
+        conn = get_db_connection()
+        if not conn:
+            print("No se pudo conectar a la base de datos")
+            return jsonify([])
+
+        cursor = conn.cursor()
+        query = """
             SELECT TOP 100
-                cap.SerieAlbaran,
-                cap.NumeroAlbaran,
-                CONVERT(VARCHAR(10), cap.FechaAlbaran, 120) as FechaAlbaran,
-                cap.CodigoProveedor,
-                ISNULL(p.RazonSocial, '') as RazonSocial,
-                ISNULL(p.CifDni, '') as CifDni,
-                ISNULL(cap.ImporteLiquido, 0) as ImporteLiquido
-            FROM dbo.CabeceraAlbaranProveedor cap WITH (NOLOCK)
-            LEFT JOIN dbo.Proveedores p WITH (NOLOCK) 
-                ON cap.CodigoProveedor = p.CodigoProveedor
-            WHERE cap.FechaAlbaran >= DATEADD(month, -6, GETDATE())
-            ORDER BY cap.FechaAlbaran DESC
-            """
-
-            print("Ejecutando query:", query)  # Debug
-            cursor = conn.cursor()
-            cursor.execute(query)
-            
-            results = []
-            for row in cursor.fetchall():
-                try:
-                    result = {
-                        "SerieAlbaran": str(row[0]).strip(),
-                        "NumeroAlbaran": str(row[1]).strip(),
-                        "FechaAlbaran": str(row[2]),
-                        "CodigoProveedor": str(row[3]).strip(),
-                        "RazonSocial": str(row[4]).strip(),
-                        "CifDni": str(row[5]).strip(),
-                        "ImporteLiquido": float(row[6] or 0)
-                    }
-                    results.append(result)
-                    print(f"Procesado registro: {result}")  # Debug
-                except Exception as e:
-                    print(f"Error procesando fila: {str(e)}")
-                    continue
-
-            print(f"Total de registros encontrados: {len(results)}")  # Debug
-            cursor.close()
-            return jsonify(results)
+                c.SerieAlbaran,
+                c.NumeroAlbaran,
+                CONVERT(VARCHAR(10), c.FechaAlbaran, 103) as Fecha,
+                c.CodigoProveedor,
+                p.RazonSocial,
+                p.CifDni,
+                c.ImporteLiquido
+            FROM CabeceraAlbaranProveedor c
+            LEFT JOIN Proveedores p ON c.CodigoProveedor = p.CodigoProveedor
+            ORDER BY c.FechaAlbaran DESC, c.SerieAlbaran, c.NumeroAlbaran
+        """
         
-        return render_template('compras.html')
+        print(f"Ejecutando query: {query}")
+        cursor.execute(query)
+        
+        results = []
+        for row in cursor:
+            result = {
+                "Serie": str(row[0] or '').strip(),
+                "Numero": str(row[1] or '').strip(),
+                "Fecha": str(row[2] or ''),
+                "CodigoProveedor": str(row[3] or '').strip(),
+                "RazonSocial": str(row[4] or '').strip(),
+                "CifDni": str(row[5] or '').strip(),
+                "Total": float(row[6] or 0)
+            }
+            results.append(result)
+
+        cursor.close()
+        conn.close()
+        print(f"Total registros encontrados: {len(results)}")
+        return jsonify(results)
 
     except Exception as e:
         print(f"Error en get_compras: {str(e)}")
@@ -192,57 +182,40 @@ def get_compras():
         print(traceback.format_exc())
         return jsonify([])
 
-@app.route('/compras/detalle')
-def get_detalle_compra():
+@app.route('/test-compras')
+def test_compras():
     try:
-        serie = request.args.get('serie')
-        numero = request.args.get('numero')
-        
+        print("Probando consulta de compras...")
         conn = get_db_connection()
         if not conn:
-            return jsonify({"error": "Error de conexión a la base de datos"}), 500
-
-        query = """
-        SELECT 
-            lap.SerieAlbaran,
-            lap.NumeroAlbaran,
-            lap.DescripcionArticulo,
-            ISNULL(lap.Partida, '') as Partida,
-            lap.FechaCaduca,
-            ISNULL(lap.Unidades, 0) as Unidades,
-            ISNULL(lap.Precio, 0) as Precio,
-            ISNULL(lap.ImporteNeto, 0) as ImporteNeto
-        FROM dbo.LineasAlbaranProveedor lap
-        WHERE lap.SerieAlbaran = ? AND lap.NumeroAlbaran = ?
-        ORDER BY lap.NumeroLinea
-        """
+            return "No se pudo conectar a la base de datos"
 
         cursor = conn.cursor()
-        cursor.execute(query, (serie, numero))
         
-        results = []
-        for row in cursor.fetchall():
-            result_dict = {
-                "SerieAlbaran": str(row[0]).strip() if row[0] else "",
-                "NumeroAlbaran": str(row[1]).strip() if row[1] else "",
-                "DescripcionArticulo": str(row[2]).strip() if row[2] else "",
-                "Partida": str(row[3]).strip() if row[3] else "",
-                "FechaCaduca": row[4].strftime('%Y-%m-%d') if row[4] else "",
-                "Unidades": float(row[5]) if row[5] else 0,
-                "Precio": float(row[6]) if row[6] else 0,
-                "ImporteNeto": float(row[7]) if row[7] else 0
-            }
-            results.append(result_dict)
-
-        return jsonify(results)
+        # Verificar si la tabla existe y su estructura
+        print("\nVerificando tablas...")
+        cursor.execute("""
+            SELECT TABLE_NAME 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_TYPE = 'BASE TABLE'
+            AND TABLE_NAME LIKE '%Compra%'
+        """)
+        
+        tables = cursor.fetchall()
+        print("\nTablas encontradas:")
+        for table in tables:
+            print(f"- {table[0]}")
+            cursor.execute(f"SELECT TOP 1 * FROM {table[0]}")
+            columns = [column[0] for column in cursor.description]
+            print(f"  Columnas: {', '.join(columns)}")
+        
+        cursor.close()
+        conn.close()
+        return "Revisa la consola para ver las tablas y columnas"
 
     except Exception as e:
-        print(f"Error en get_detalle_compra: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-    
-    finally:
-        if 'conn' in locals() and conn:
-            conn.close()
+        print(f"Error: {str(e)}")
+        return f"Error: {str(e)}"
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
