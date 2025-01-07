@@ -16,19 +16,30 @@ logger = logging.getLogger(__name__)
 def get_db_connection():
     try:
         print("Intentando conectar a la base de datos...")
-        print(f"Server: {os.getenv('DB_SERVER')}")
-        print(f"Database: {os.getenv('DB_DATABASE')}")
+        server = os.getenv('DB_SERVER', '')
+        database = os.getenv('DB_DATABASE', '')
+        username = os.getenv('DB_USERNAME', '')
+        password = os.getenv('DB_PASSWORD', '')
+
+        print(f"Configuración:")
+        print(f"Server: {server}")
+        print(f"Database: {database}")
+        print(f"Username: {username}")
         
+        if not all([server, database, username, password]):
+            print("Error: Faltan variables de entorno")
+            return None
+
         conn_str = (
             f'DRIVER={{ODBC Driver 17 for SQL Server}};'
-            f'SERVER={os.getenv("DB_SERVER")};'
-            f'DATABASE={os.getenv("DB_DATABASE")};'
-            f'UID={os.getenv("DB_USERNAME")};'
-            f'PWD={os.getenv("DB_PASSWORD")};'
-            'TrustServerCertificate=yes;'  # Agregado para evitar problemas de SSL
+            f'SERVER={server};'
+            f'DATABASE={database};'
+            f'UID={username};'
+            f'PWD={password};'
+            'TrustServerCertificate=yes;'
         )
         
-        print("Intentando conectar con string:", conn_str)
+        print("Intentando conectar...")
         conn = pyodbc.connect(conn_str)
         print("¡Conexión exitosa!")
         return conn
