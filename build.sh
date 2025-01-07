@@ -2,12 +2,23 @@
 # exit on error
 set -o errexit
 
-# Instalar dependencias del sistema
-curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list
-apt-get update
-ACCEPT_EULA=Y apt-get install -y msodbcsql17
-apt-get install -y unixodbc-dev
+# Add Microsoft repository
+curl https://packages.microsoft.com/keys/microsoft.asc | tee /etc/apt/trusted.gpg.d/microsoft.asc
+curl https://packages.microsoft.com/config/debian/11/prod.list | tee /etc/apt/sources.list.d/mssql-release.list
 
-# Instalar dependencias de Python
+# Install prerequisites
+apt-get update
+apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    locales \
+    unixodbc-dev
+
+# Install Microsoft ODBC Driver for SQL Server
+ACCEPT_EULA=Y apt-get install -y msodbcsql17
+
+# Configure locale
+locale-gen en_US.UTF-8
+update-locale LANG=en_US.UTF-8
+
+# Install Python dependencies
 pip install -r requirements.txt 

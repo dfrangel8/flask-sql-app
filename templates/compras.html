@@ -74,13 +74,20 @@
 
     <script>
     $(document).ready(function() {
-        var comprasTable = $('#comprasTable').DataTable({
+        $('#comprasTable').DataTable({
             ajax: {
                 url: '/compras',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                dataSrc: ''
+                dataSrc: '',
+                error: function(xhr, error, thrown) {
+                    console.log('Error en la llamada AJAX:');
+                    console.log('Estado:', xhr.status);
+                    console.log('Respuesta:', xhr.responseText);
+                    console.log('Error:', error);
+                    console.log('Thrown:', thrown);
+                }
             },
             columns: [
                 { data: 'SerieAlbaran' },
@@ -89,8 +96,7 @@
                     data: 'FechaAlbaran',
                     render: function(data) {
                         return data ? new Date(data).toLocaleDateString('es-ES') : '';
-                    },
-                    type: 'date'
+                    }
                 },
                 { data: 'CodigoProveedor' },
                 { data: 'RazonSocial' },
@@ -106,28 +112,11 @@
                     }
                 }
             ],
-            dom: 'Bfrtip',
-            buttons: ['copy', 'csv', 'excel', 'pdf'],
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
             },
-            pageLength: 25,
-            order: [[2, 'desc']],
-            scrollX: true,
-            initComplete: function () {
-                this.api().columns().every(function (index) {
-                    if (index != 7) { // Excluir columna de acciones
-                        var column = this;
-                        var title = $(column.footer()).text();
-                        $(column.footer()).html('<input type="text" placeholder="Buscar ' + title + '" />');
-                        $('input', column.footer()).on('keyup change', function () {
-                            if (column.search() !== this.value) {
-                                column.search(this.value).draw();
-                            }
-                        });
-                    }
-                });
-            }
+            dom: 'Bfrtip',
+            buttons: ['copy', 'csv', 'excel', 'pdf']
         });
 
         // Configuración del modal

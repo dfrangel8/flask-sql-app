@@ -2,6 +2,7 @@ from flask import Flask, jsonify, render_template, request
 import pyodbc
 import logging
 from datetime import datetime
+import os
 
 app = Flask(__name__, 
     static_folder='static',    # Asegúrate de que esto coincida con tu estructura de carpetas
@@ -14,18 +15,35 @@ logger = logging.getLogger(__name__)
 
 def get_db_connection():
     try:
-        conn = pyodbc.connect(
-            'DRIVER={ODBC Driver 17 for SQL Server};'
-            'SERVER=SERVIDOR\\SAGE200;'
-            'DATABASE=MMARKET;'
-            'UID=ConsultasMM;'
-            'PWD=Sage2009+;'
-            'Trusted_Connection=no;'
-        )
-        logger.info("Conexión a base de datos exitosa")
-        return conn
+        # Imprimir información de diagnóstico
+        print("Intentando conectar a la base de datos...")
+        print(f"Server: {os.getenv('DB_SERVER')}")
+        print(f"Database: {os.getenv('DB_DATABASE')}")
+        
+        # Intentar diferentes strings de conexión
+        connection_strings = [
+            # String de conexión 1
+            f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={os.getenv("DB_SERVER")};DATABASE={os.getenv("DB_DATABASE")};UID={os.getenv("DB_USERNAME")};PWD={os.getenv("DB_PASSWORD")}',
+            # String de conexión 2
+            f'DRIVER={{/opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17.so}};SERVER={os.getenv("DB_SERVER")};DATABASE={os.getenv("DB_DATABASE")};UID={os.getenv("DB_USERNAME")};PWD={os.getenv("DB_PASSWORD")}'
+        ]
+        
+        last_error = None
+        for conn_str in connection_strings:
+            try:
+                print(f"Intentando conectar con string: {conn_str}")
+                conn = pyodbc.connect(conn_str)
+                print("Conexión exitosa!")
+                return conn
+            except Exception as e:
+                print(f"Error con string de conexión: {str(e)}")
+                last_error = e
+        
+        if last_error:
+            raise last_error
+            
     except Exception as e:
-        logger.error(f"Error de conexión a la base de datos: {str(e)}")
+        print(f"Error de conexión a la base de datos: {str(e)}")
         return None
 
 @app.route('/')
@@ -104,9 +122,11 @@ def get_clientes():
 @app.route('/compras')
 def get_compras():
     try:
+        print("Iniciando consulta de compras")  # Debug
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             conn = get_db_connection()
             if not conn:
+                print("Error de conexión a la base de datos")  # Debug
                 return jsonify({"error": "Error de conexión a la base de datos"}), 500
 
             query = """
@@ -123,12 +143,14 @@ def get_compras():
             ORDER BY cap.FechaAlbaran DESC
             """
 
+            print("Ejecutando query")  # Debug
             cursor = conn.cursor()
             cursor.execute(query)
             
             columns = [column[0] for column in cursor.description]
             results = []
             
+            print("Procesando resultados")  # Debug
             for row in cursor.fetchall():
                 result_dict = {}
                 for i, value in enumerate(row):
@@ -142,13 +164,22 @@ def get_compras():
                         result_dict[columns[i]] = str(value).strip()
                 results.append(result_dict)
 
+            print(f"Encontrados {len(results)} registros")  # Debug
             return jsonify(results)
         
+        print("Renderizando template")  # Debug
         return render_template('compras.html')
 
     except Exception as e:
-        logger.error(f"Error al obtener compras: {str(e)}")
+        print(f"Error en get_compras: {str(e)}")  # Debug
+        import traceback
+        print(traceback.format_exc())  # Debug
         return jsonify({"error": str(e)}), 500
+    
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+            print("Conexión cerrada")  # Debug
 
 @app.route('/compras/detalle')
 def get_detalle_compra():
