@@ -53,133 +53,107 @@ def index():
 @app.route('/clientes')
 def get_clientes():
     try:
-        # Si es una solicitud AJAX, devolver JSON
+        print("Iniciando consulta de clientes")
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             conn = get_db_connection()
             if not conn:
-                logger.error("No se pudo establecer conexión con la base de datos")
-                return jsonify({"error": "Error de conexión a la base de datos"}), 500
+                print("Error de conexión a la base de datos")
+                return jsonify([])
 
             query = """
-            SELECT 
-                c.CodigoCliente,
-                c.CifDni,
-                c.RazonSocial,
-                c.Municipio,
-                c.Provincia,
-                c.Nacion,
-                c.Telefono,
-                ca.CodigoEmpresa,
-                ca.IdDelegacion,
-                ca.EjercicioAlbaran,
-                ca.SerieAlbaran,
-                ca.NumeroAlbaran,
-                ca.FechaAlbaran,
-                ca.NumeroLineas,
-                ISNULL(ca.ImporteCoste, 0) as ImporteCoste,
-                ISNULL(ca.ImporteNetoLineas, 0) as ImporteNetoLineas,
-                ISNULL(ca.ImporteDescuento, 0) as ImporteDescuento,
-                ISNULL(ca.BaseImponible, 0) as BaseImponible
-            FROM dbo.Clientes c
-            LEFT JOIN dbo.CabeceraAlbaranCliente ca 
-                ON c.CifDni = ca.CifDni
-            WHERE c.CodigoCliente IS NOT NULL
-            ORDER BY c.RazonSocial
+            SELECT TOP 1000
+                CodigoCliente,
+                RazonSocial,
+                CifDni,
+                Direccion,
+                CodigoPostal,
+                Poblacion,
+                Provincia,
+                Telefono
+            FROM dbo.Clientes
+            ORDER BY RazonSocial
             """
 
             cursor = conn.cursor()
             cursor.execute(query)
             
-            columns = [column[0] for column in cursor.description]
             results = []
-            
             for row in cursor.fetchall():
-                result_dict = {}
-                for i, value in enumerate(row):
-                    if isinstance(value, datetime):
-                        result_dict[columns[i]] = value.strftime('%Y-%m-%d')
-                    elif isinstance(value, (int, float)):
-                        result_dict[columns[i]] = float(value)
-                    elif value is None:
-                        result_dict[columns[i]] = ""
-                    else:
-                        result_dict[columns[i]] = str(value).strip()
-                results.append(result_dict)
+                result = {
+                    "CodigoCliente": str(row[0]).strip(),
+                    "RazonSocial": str(row[1]).strip() if row[1] else "",
+                    "CifDni": str(row[2]).strip() if row[2] else "",
+                    "Direccion": str(row[3]).strip() if row[3] else "",
+                    "CodigoPostal": str(row[4]).strip() if row[4] else "",
+                    "Poblacion": str(row[5]).strip() if row[5] else "",
+                    "Provincia": str(row[6]).strip() if row[6] else "",
+                    "Telefono": str(row[7]).strip() if row[7] else ""
+                }
+                results.append(result)
 
+            cursor.close()
+            conn.close()
             return jsonify(results)
         
-        # Si no es AJAX, renderizar el template HTML
         return render_template('clientes.html')
 
     except Exception as e:
-        logger.error(f"Error al obtener datos: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-    
-    finally:
-        if 'conn' in locals() and conn:
-            conn.close()
+        print(f"Error en get_clientes: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify([])
 
 @app.route('/compras')
 def get_compras():
     try:
-        print("Iniciando consulta de compras")  # Debug
+        print("Iniciando consulta de compras")
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             conn = get_db_connection()
             if not conn:
-                print("Error de conexión a la base de datos")  # Debug
-                return jsonify({"error": "Error de conexión a la base de datos"}), 500
+                print("Error de conexión a la base de datos")
+                return jsonify([])  # Retornamos array vacío en lugar de error 500
 
             query = """
-            SELECT 
+            SELECT TOP 1000
                 cap.SerieAlbaran,
                 cap.NumeroAlbaran,
-                cap.FechaAlbaran,
+                CONVERT(VARCHAR(10), cap.FechaAlbaran, 120) as FechaAlbaran,
                 cap.CodigoProveedor,
                 p.RazonSocial,
                 p.CifDni,
-                cap.ImporteLiquido
+                ISNULL(cap.ImporteLiquido, 0) as ImporteLiquido
             FROM dbo.CabeceraAlbaranProveedor cap
             LEFT JOIN dbo.Proveedores p ON cap.CodigoProveedor = p.CodigoProveedor
             ORDER BY cap.FechaAlbaran DESC
             """
 
-            print("Ejecutando query")  # Debug
             cursor = conn.cursor()
             cursor.execute(query)
             
-            columns = [column[0] for column in cursor.description]
             results = []
-            
-            print("Procesando resultados")  # Debug
             for row in cursor.fetchall():
-                result_dict = {}
-                for i, value in enumerate(row):
-                    if isinstance(value, datetime):
-                        result_dict[columns[i]] = value.strftime('%Y-%m-%d')
-                    elif isinstance(value, (int, float)):
-                        result_dict[columns[i]] = float(value)
-                    elif value is None:
-                        result_dict[columns[i]] = ""
-                    else:
-                        result_dict[columns[i]] = str(value).strip()
-                results.append(result_dict)
+                result = {
+                    "SerieAlbaran": str(row[0]).strip(),
+                    "NumeroAlbaran": str(row[1]).strip(),
+                    "FechaAlbaran": str(row[2]),
+                    "CodigoProveedor": str(row[3]).strip(),
+                    "RazonSocial": str(row[4]).strip() if row[4] else "",
+                    "CifDni": str(row[5]).strip() if row[5] else "",
+                    "ImporteLiquido": float(row[6])
+                }
+                results.append(result)
 
-            print(f"Encontrados {len(results)} registros")  # Debug
+            cursor.close()
+            conn.close()
             return jsonify(results)
         
-        print("Renderizando template")  # Debug
         return render_template('compras.html')
 
     except Exception as e:
-        print(f"Error en get_compras: {str(e)}")  # Debug
+        print(f"Error en get_compras: {str(e)}")
         import traceback
-        print(traceback.format_exc())  # Debug
-        return jsonify({"error": str(e)}), 500
-    
-    finally:
-        if 'conn' in locals() and conn:
-            conn.close()
-            print("Conexión cerrada")  # Debug
+        print(traceback.format_exc())
+        return jsonify([])  # Retornamos array vacío en lugar de error 500
 
 @app.route('/compras/detalle')
 def get_detalle_compra():
