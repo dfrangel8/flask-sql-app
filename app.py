@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def get_db_connection():
     try:
         print("Intentando conectar a la base de datos...")
-        server = os.getenv('DB_SERVER', '')
+        server = os.getenv('DB_SERVER', '').replace('\\', '\\\\')
         database = os.getenv('DB_DATABASE', '')
         username = os.getenv('DB_USERNAME', '')
         password = os.getenv('DB_PASSWORD', '')
@@ -30,19 +30,34 @@ def get_db_connection():
             print("Error: Faltan variables de entorno")
             return None
 
-        conn_str = (
-            f'DRIVER={{ODBC Driver 17 for SQL Server}};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-            'TrustServerCertificate=yes;'
-        )
+        # Intentar con diferentes rutas del driver
+        drivers = [
+            '{ODBC Driver 17 for SQL Server}',
+            '/opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17.so'
+        ]
         
-        print("Intentando conectar...")
-        conn = pyodbc.connect(conn_str)
-        print("¡Conexión exitosa!")
-        return conn
+        last_error = None
+        for driver in drivers:
+            try:
+                conn_str = (
+                    f'DRIVER={driver};'
+                    f'SERVER={server};'
+                    f'DATABASE={database};'
+                    f'UID={username};'
+                    f'PWD={password};'
+                    'TrustServerCertificate=yes;'
+                    'Encrypt=no;'
+                )
+                print(f"Intentando conectar con driver: {driver}")
+                conn = pyodbc.connect(conn_str)
+                print("¡Conexión exitosa!")
+                return conn
+            except Exception as e:
+                print(f"Error con driver {driver}: {str(e)}")
+                last_error = e
+        
+        if last_error:
+            raise last_error
             
     except Exception as e:
         print(f"Error de conexión a la base de datos: {str(e)}")
