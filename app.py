@@ -15,52 +15,49 @@ logger = logging.getLogger(__name__)
 
 def get_db_connection():
     try:
-        print("Intentando conectar a la base de datos...")
+        print("\n=== Iniciando conexión a la base de datos ===")
         server = os.getenv('DB_SERVER', '').replace('\\', '\\\\')
-        database = os.getenv('DB_DATABASE', '')
-        username = os.getenv('DB_USERNAME', '')
+        database = os.getenv('DB_NAME', '')
+        username = os.getenv('DB_USER', '')
         password = os.getenv('DB_PASSWORD', '')
 
-        print(f"Configuración:")
-        print(f"Server: {server}")
-        print(f"Database: {database}")
-        print(f"Username: {username}")
-        
+        print(f"""
+        Configuración:
+        Server: {server}
+        Database: {database}
+        Username: {username}
+        Password: {'*' * len(password) if password else 'No configurado'}
+        """)
+
         if not all([server, database, username, password]):
             print("Error: Faltan variables de entorno")
             return None
 
-        # Intentar con diferentes rutas del driver
-        drivers = [
-            '{ODBC Driver 17 for SQL Server}',
-            '/opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17.so'
-        ]
+        conn_str = (
+            f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+            f'SERVER={server};'
+            f'DATABASE={database};'
+            f'UID={username};'
+            f'PWD={password};'
+            'TrustServerCertificate=yes;'
+            'Encrypt=no;'
+        )
+
+        print("Intentando conexión...")
+        conn = pyodbc.connect(conn_str)
+        print("¡Conexión exitosa!")
         
-        last_error = None
-        for driver in drivers:
-            try:
-                conn_str = (
-                    f'DRIVER={driver};'
-                    f'SERVER={server};'
-                    f'DATABASE={database};'
-                    f'UID={username};'
-                    f'PWD={password};'
-                    'TrustServerCertificate=yes;'
-                    'Encrypt=no;'
-                )
-                print(f"Intentando conectar con driver: {driver}")
-                conn = pyodbc.connect(conn_str)
-                print("¡Conexión exitosa!")
-                return conn
-            except Exception as e:
-                print(f"Error con driver {driver}: {str(e)}")
-                last_error = e
+        # Verificar la conexión con una consulta simple
+        cursor = conn.cursor()
+        cursor.execute("SELECT @@version")
+        version = cursor.fetchone()[0]
+        print(f"Versión SQL Server: {version}")
+        cursor.close()
         
-        if last_error:
-            raise last_error
-            
+        return conn
+
     except Exception as e:
-        print(f"Error de conexión a la base de datos: {str(e)}")
+        print(f"Error de conexión: {str(e)}")
         import traceback
         print(traceback.format_exc())
         return None
@@ -77,41 +74,53 @@ def get_clientes():
             conn = get_db_connection()
             if not conn:
                 print("Error de conexión a la base de datos")
-                return jsonify([])
+                return jsonify({"error": "No se pudo conectar a la base de datos"})
 
+            # Consulta de prueba simple
             query = """
-            SELECT TOP 1000
-                CodigoCliente,
-                RazonSocial,
-                CifDni,
-                Direccion,
-                CodigoPostal,
-                Poblacion,
-                Provincia,
-                Telefono
-            FROM dbo.Clientes
-            ORDER BY RazonSocial
+            SELECT TOP 10 * FROM dbo.Clientes WITH (NOLOCK)
             """
 
+            print("Ejecutando query de prueba...")
             cursor = conn.cursor()
+            
+            # Imprimir todas las tablas disponibles
+            print("Listando tablas disponibles:")
+            cursor.execute("""
+                SELECT TABLE_NAME 
+                FROM INFORMATION_SCHEMA.TABLES 
+                WHERE TABLE_TYPE = 'BASE TABLE'
+            """)
+            tables = cursor.fetchall()
+            for table in tables:
+                print(f"Tabla encontrada: {table[0]}")
+
+            # Intentar la consulta original
+            print("Ejecutando consulta principal...")
             cursor.execute(query)
+            
+            # Imprimir información de columnas
+            columns = [column[0] for column in cursor.description]
+            print("Columnas:", columns)
             
             results = []
             for row in cursor.fetchall():
-                result = {
-                    "CodigoCliente": str(row[0]).strip(),
-                    "RazonSocial": str(row[1]).strip() if row[1] else "",
-                    "CifDni": str(row[2]).strip() if row[2] else "",
-                    "Direccion": str(row[3]).strip() if row[3] else "",
-                    "CodigoPostal": str(row[4]).strip() if row[4] else "",
-                    "Poblacion": str(row[5]).strip() if row[5] else "",
-                    "Provincia": str(row[6]).strip() if row[6] else "",
-                    "Telefono": str(row[7]).strip() if row[7] else ""
-                }
+                result = {}
+                for i, column in enumerate(columns):
+                    value = row[i]
+                    if value is None:
+                        result[column] = ""
+                    elif isinstance(value, (int, float)):
+                        result[column] = float(value)
+                    else:
+                        result[column] = str(value).strip()
                 results.append(result)
+                print(f"Fila procesada: {result}")
 
             cursor.close()
             conn.close()
+
+            print(f"Total registros encontrados: {len(results)}")
             return jsonify(results)
         
         return render_template('clientes.html')
@@ -120,7 +129,7 @@ def get_clientes():
         print(f"Error en get_clientes: {str(e)}")
         import traceback
         print(traceback.format_exc())
-        return jsonify([])
+        return jsonify({"error": str(e)})
 
 @app.route('/compras')
 def get_compras():
@@ -130,40 +139,49 @@ def get_compras():
             conn = get_db_connection()
             if not conn:
                 print("Error de conexión a la base de datos")
-                return jsonify([])  # Retornamos array vacío en lugar de error 500
+                return jsonify([])
 
+            # Query simplificada para pruebas
             query = """
-            SELECT TOP 1000
+            SELECT TOP 100
                 cap.SerieAlbaran,
                 cap.NumeroAlbaran,
                 CONVERT(VARCHAR(10), cap.FechaAlbaran, 120) as FechaAlbaran,
                 cap.CodigoProveedor,
-                p.RazonSocial,
-                p.CifDni,
+                ISNULL(p.RazonSocial, '') as RazonSocial,
+                ISNULL(p.CifDni, '') as CifDni,
                 ISNULL(cap.ImporteLiquido, 0) as ImporteLiquido
-            FROM dbo.CabeceraAlbaranProveedor cap
-            LEFT JOIN dbo.Proveedores p ON cap.CodigoProveedor = p.CodigoProveedor
+            FROM dbo.CabeceraAlbaranProveedor cap WITH (NOLOCK)
+            LEFT JOIN dbo.Proveedores p WITH (NOLOCK) 
+                ON cap.CodigoProveedor = p.CodigoProveedor
+            WHERE cap.FechaAlbaran >= DATEADD(month, -6, GETDATE())
             ORDER BY cap.FechaAlbaran DESC
             """
 
+            print("Ejecutando query:", query)  # Debug
             cursor = conn.cursor()
             cursor.execute(query)
             
             results = []
             for row in cursor.fetchall():
-                result = {
-                    "SerieAlbaran": str(row[0]).strip(),
-                    "NumeroAlbaran": str(row[1]).strip(),
-                    "FechaAlbaran": str(row[2]),
-                    "CodigoProveedor": str(row[3]).strip(),
-                    "RazonSocial": str(row[4]).strip() if row[4] else "",
-                    "CifDni": str(row[5]).strip() if row[5] else "",
-                    "ImporteLiquido": float(row[6])
-                }
-                results.append(result)
+                try:
+                    result = {
+                        "SerieAlbaran": str(row[0]).strip(),
+                        "NumeroAlbaran": str(row[1]).strip(),
+                        "FechaAlbaran": str(row[2]),
+                        "CodigoProveedor": str(row[3]).strip(),
+                        "RazonSocial": str(row[4]).strip(),
+                        "CifDni": str(row[5]).strip(),
+                        "ImporteLiquido": float(row[6] or 0)
+                    }
+                    results.append(result)
+                    print(f"Procesado registro: {result}")  # Debug
+                except Exception as e:
+                    print(f"Error procesando fila: {str(e)}")
+                    continue
 
+            print(f"Total de registros encontrados: {len(results)}")  # Debug
             cursor.close()
-            conn.close()
             return jsonify(results)
         
         return render_template('compras.html')
@@ -172,7 +190,7 @@ def get_compras():
         print(f"Error en get_compras: {str(e)}")
         import traceback
         print(traceback.format_exc())
-        return jsonify([])  # Retornamos array vacío en lugar de error 500
+        return jsonify([])
 
 @app.route('/compras/detalle')
 def get_detalle_compra():
