@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API MMARKET</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>API MMARKET</h1>
+        <div class="cards-container">
+            <div class="card">
+                <h2>Clientes</h2>
+                <p>Accede a la información de clientes</p>
+                <a href="/clientes" class="btn" target="_blank">Ver Clientes</a>
+            </div>
+            <div class="card">
+                <h2>Ventas</h2>
+                <p>Consulta el registro de ventas</p>
+                <a href="/ventas" class="btn" target="_blank">Ver Ventas</a>
+            </div>
+            <div class="card">
+                <h2>Compras</h2>
+                <p>Revisa el historial de compras</p>
+                <a href="/compras" class="btn" target="_blank">Ver Compras</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

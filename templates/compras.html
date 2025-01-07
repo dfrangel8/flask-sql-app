@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listado de Compras</title>
+    
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tables.css') }}">
+    
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Listado de Compras</h1>
+        <table id="comprasTable" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Serie</th>
+                    <th>Número</th>
+                    <th>Fecha</th>
+                    <th>Cód. Proveedor</th>
+                    <th>Razón Social</th>
+                    <th>CIF/DNI</th>
+                    <th>Importe</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tfoot>
+                <tr>
+                    <th>Serie</th>
+                    <th>Número</th>
+                    <th>Fecha</th>
+                    <th>Cód. Proveedor</th>
+                    <th>Razón Social</th>
+                    <th>CIF/DNI</th>
+                    <th>Importe</th>
+                    <th>Acciones</th>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- Modal para mostrar detalles -->
+        <div id="detalleModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Detalle de Albarán</h2>
+                <div class="table-container">
+                    <table id="detalleTable" class="display" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Serie</th>
+                                <th>Número</th>
+                                <th>Artículo</th>
+                                <th>Partida</th>
+                                <th>F. Caduca</th>
+                                <th>Unidades</th>
+                                <th>Precio</th>
+                                <th>Importe</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    $(document).ready(function() {
+        var comprasTable = $('#comprasTable').DataTable({
+            ajax: {
+                url: '/compras',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                dataSrc: ''
+            },
+            columns: [
+                { data: 'SerieAlbaran' },
+                { data: 'NumeroAlbaran' },
+                { 
+                    data: 'FechaAlbaran',
+                    render: function(data) {
+                        return data ? new Date(data).toLocaleDateString('es-ES') : '';
+                    },
+                    type: 'date'
+                },
+                { data: 'CodigoProveedor' },
+                { data: 'RazonSocial' },
+                { data: 'CifDni' },
+                { 
+                    data: 'ImporteLiquido',
+                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
+                },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        return '<button onclick="verDetalle(\'' + row.SerieAlbaran + '\', \'' + row.NumeroAlbaran + '\')">Ver Detalle</button>';
+                    }
+                }
+            ],
+            dom: 'Bfrtip',
+            buttons: ['copy', 'csv', 'excel', 'pdf'],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
+            },
+            pageLength: 25,
+            order: [[2, 'desc']],
+            scrollX: true,
+            initComplete: function () {
+                this.api().columns().every(function (index) {
+                    if (index != 7) { // Excluir columna de acciones
+                        var column = this;
+                        var title = $(column.footer()).text();
+                        $(column.footer()).html('<input type="text" placeholder="Buscar ' + title + '" />');
+                        $('input', column.footer()).on('keyup change', function () {
+                            if (column.search() !== this.value) {
+                                column.search(this.value).draw();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        // Configuración del modal
+        var modal = document.getElementById("detalleModal");
+        var span = document.getElementsByClassName("close")[0];
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    });
+
+    function verDetalle(serie, numero) {
+        console.log('Consultando detalle para serie:', serie, 'numero:', numero);
+        
+        var detalleTable = $('#detalleTable').DataTable({
+            destroy: true,
+            ajax: {
+                url: '/compras/detalle',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                data: {
+                    serie: serie,
+                    numero: numero
+                },
+                dataSrc: ''
+            },
+            columns: [
+                { data: 'SerieAlbaran' },
+                { data: 'NumeroAlbaran' },
+                { data: 'DescripcionArticulo' },
+                { data: 'Partida' },
+                { 
+                    data: 'FechaCaduca',
+                    render: function(data) {
+                        return data ? new Date(data).toLocaleDateString('es-ES') : '';
+                    }
+                },
+                { 
+                    data: 'Unidades',
+                    render: $.fn.dataTable.render.number(',', '.', 2)
+                },
+                { 
+                    data: 'Precio',
+                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
+                },
+                { 
+                    data: 'ImporteNeto',
+                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
+                }
+            ],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
+            },
+            scrollX: true,
+            scrollY: '50vh', // Altura del scroll vertical
+            scrollCollapse: true,
+            paging: true,
+            dom: 'Bfrtip',
+            buttons: ['copy', 'csv', 'excel', 'pdf']
+        });
+
+        document.getElementById("detalleModal").style.display = "block";
+    }
+    </script>
+
+    <style>
+    .cabecera-detalle {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+
+    .info-cabecera {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+    }
+
+    .info-grupo {
+        flex: 1;
+        margin: 0 15px;
+    }
+
+    .info-grupo p {
+        margin: 5px 0;
+    }
+
+    .info-grupo strong {
+        color: #2c3e50;
+    }
+
+    /* Estilos para el modal */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.4);
+        overflow: auto;
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 90%;
+        max-width: 1200px;
+        max-height: 80vh; /* Altura máxima del 80% de la ventana */
+        overflow-y: auto; /* Scroll vertical cuando sea necesario */
+        border-radius: 5px;
+    }
+
+    /* Estilo para la tabla dentro del modal */
+    .modal-content .dataTables_wrapper {
+        max-height: calc(80vh - 150px); /* Altura máxima menos el espacio para el título y controles */
+        overflow-y: auto;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    </style>
+</body>
+</html> 

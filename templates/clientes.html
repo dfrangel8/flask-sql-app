@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listado de Clientes</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tables.css') }}">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Listado de Clientes</h1>
+        <table id="clientesTable" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>CIF/DNI</th>
+                    <th>Razón Social</th>
+                    <th>Municipio</th>
+                    <th>Provincia</th>
+                    <th>Nación</th>
+                    <th>Teléfono</th>
+                    <th>Empresa</th>
+                    <th>Delegación</th>
+                    <th>Ejercicio</th>
+                    <th>Serie</th>
+                    <th>Nº Albarán</th>
+                    <th>Fecha</th>
+                    <th>Nº Líneas</th>
+                    <th>Coste</th>
+                    <th>Neto</th>
+                    <th>Descuento</th>
+                    <th>Base Imp.</th>
+                </tr>
+            </thead>
+            <tfoot>
+                <tr>
+                    <th>Código</th>
+                    <th>CIF/DNI</th>
+                    <th>Razón Social</th>
+                    <th>Municipio</th>
+                    <th>Provincia</th>
+                    <th>Nación</th>
+                    <th>Teléfono</th>
+                    <th>Empresa</th>
+                    <th>Delegación</th>
+                    <th>Ejercicio</th>
+                    <th>Serie</th>
+                    <th>Nº Albarán</th>
+                    <th>Fecha</th>
+                    <th>Nº Líneas</th>
+                    <th>Coste</th>
+                    <th>Neto</th>
+                    <th>Descuento</th>
+                    <th>Base Imp.</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <script>
+    $(document).ready(function() {
+        $('#clientesTable').DataTable({
+            ajax: {
+                url: '/clientes',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                dataSrc: ''
+            },
+            columns: [
+                { data: 'CodigoCliente' },
+                { data: 'CifDni' },
+                { data: 'RazonSocial' },
+                { data: 'Municipio' },
+                { data: 'Provincia' },
+                { data: 'Nacion' },
+                { data: 'Telefono' },
+                { data: 'CodigoEmpresa' },
+                { data: 'IdDelegacion' },
+                { data: 'EjercicioAlbaran' },
+                { data: 'SerieAlbaran' },
+                { data: 'NumeroAlbaran' },
+                { 
+                    data: 'FechaAlbaran',
+                    render: function(data) {
+                        return data ? new Date(data).toLocaleDateString('es-ES') : '';
+                    }
+                },
+                { data: 'NumeroLineas' },
+                { 
+                    data: 'ImporteCoste',
+                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
+                },
+                { 
+                    data: 'ImporteNetoLineas',
+                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
+                },
+                { 
+                    data: 'ImporteDescuento',
+                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
+                },
+                { 
+                    data: 'BaseImponible',
+                    render: $.fn.dataTable.render.number(',', '.', 2, '', ' €')
+                }
+            ],
+            dom: 'Bfrtip',
+            buttons: [
+                'copy', 'csv', 'excel', 'pdf'
+            ],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
+            },
+            pageLength: 25,
+            order: [[2, 'asc']],
+            scrollX: true,
+            initComplete: function () {
+                this.api()
+                    .columns()
+                    .every(function () {
+                        let column = this;
+                        let title = column.footer().textContent;
+ 
+                        // Crear input de búsqueda
+                        let input = document.createElement('input');
+                        input.placeholder = title;
+                        input.style.width = '100%';
+                        column.footer().replaceChildren(input);
+ 
+                        // Eventos de búsqueda
+                        input.addEventListener('keyup', () => {
+                            if (column.search() !== input.value) {
+                                column.search(input.value).draw();
+                            }
+                        });
+                    });
+            }
+        });
+    });
+    </script>
+</body>
+</html> 
